@@ -3,11 +3,7 @@ from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.cli import CLI
 
-if len(sys.argv) == 3:
-	
-	datacenter = int(sys.argv[1])
-	client = int(sys.argv[2])
-	print "Create %s datacenters and %s clients" % (datacenter, client)
+if len(sys.argv) > 3:
 
 	class MyTopo( Topo ):
 	    "Distributed Cloud Topology"
@@ -15,37 +11,56 @@ if len(sys.argv) == 3:
 		"Create custom topo."
 	    	Topo.__init__( self )
 
+		
+		flag = 'OFF'		
+		datacenter_id = 1
+		client_id = 1		
+		host_id = 1
+		dc_switch_list = []
+		dc_gw_list = []
 
-		dc_net = self.addHost('h%d' % (datacenter+client+1),ip = '10.0.0.%d/24' % (datacenter+client+1))
-		cl_net = self.addHost('h%d' % (datacenter+client+2),ip = '10.0.1.%d/24' % (datacenter+client+2))
+		for i in sys.argv:
+
+			if i == '-d':
+				flag = 'datacenter'
+				continue
+			if i == '-c':
+				flag = 'client'
+				continue
+
+			if flag == 'datacenter':
+
+				dc_host_num = int(i)
+
+				dc_switch = self.addSwitch('s%d' % (2*datacenter_id - 1))
+				dc_switch_list.append(dc_switch)
+
+				dc_gw = self.addSwitch(('s%d' % (2*datacenter_id)))
+				dc_gw_list.append(dc_gw)
+
+				for j in range (1,dc_host_num+1):
+					host = self.addHost('h%d' % host_id ,  ip='10.0.%d.%d/24' % (datacenter_id,j))
+					host_id = host_id + 1
+					self.addLink(host,dc_switch)
+
+				datacenter_id = datacenter_id + 1
 
 
-		for i in range(1, datacenter+1):
+			if flag == 'client':
 
-			dc = self.addHost('h%d' % i,  ip='10.0.0.%d/24' % i)
+				cl_host_num = int(i)
 
-			print "Create h%d as datacenter host, the ip address is 10.0.0.%d" % (i,i)
-
-			dc_switch = self.addSwitch('s%d' % i)
-
-
-			self.addLink(dc,dc_switch)
-			self.addLink(dc_net,dc_switch)
+				for j in range (1,cl_host_num+1):
+					cl_host = self.addHost('h%d' % host_id ,  ip='10.1.%d.1/24' % j)
+					host_id = host_id + 1
+					cl_switch = self.addSwitch('s%d' % (2*(datacenter_id - 1)+j))
+					self.addLink(cl_host,cl_switch)
 
 
-		for j in range(datacenter+1, datacenter+client+1):
 
-			cl = self.addHost('h%d' % j, ip = '10.0.0.%d/24' % j)
-
-			print "Create h%d as client host, the ip address is 10.0.1.%d" % (j,j)
-
-			cl_switch = self.addSwitch('s%d' % j)
-
-
-			self.addLink(cl,cl_switch)
-			self.addLink(cl_net,cl_switch)
-
-		self.addLink(cl_net,dc_net)
+		for dc_switch in dc_switch_list:
+			for dc_gw in dc_gw_list:
+				self.addLink(dc_switch,dc_gw)
 
 
 
